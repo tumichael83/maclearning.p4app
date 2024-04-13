@@ -4,40 +4,22 @@ from scapy.all import Packet, Ether, IP, ARP
 from async_sniff import sniff
 from cpu_metadata import CPUMetadata
 
-import time
+from arp_handler import ArpHandler
 
-ARP_OP_REQ   = 0x0001
-ARP_OP_REPLY = 0x0002
+import time
 
 class MacLearningController(Thread):
     def __init__(self, sw, start_wait=0.3):
         super(MacLearningController, self).__init__()
 
-        self.sw = sw
-        self.iface = sw.intfs[1].name
-
         self.start_wait = start_wait # time to wait for the controller to be listenning
         self.stop_event = Event()
 
-        self.port_for_mac = {}
+        self.sw = sw
+        self.iface = sw.intfs[1].name
 
-    def addMacAddr(self, mac, port):
-        # Don't re-add the mac-port mapping if we already have it:
-        if mac in self.port_for_mac: return
+        self.arp_handler = ArpHandler(sw, self.send)
 
-        self.sw.insertTableEntry(table_name='MyIngress.fwd_l2',
-                match_fields={'hdr.ethernet.dstAddr': [mac]},
-                action_name='MyIngress.set_egr',
-                action_params={'port': port})
-        self.port_for_mac[mac] = port
-
-    def handleArpReply(self, pkt):
-        self.addMacAddr(pkt[ARP].hwsrc, pkt[CPUMetadata].srcPort)
-        self.send(pkt)
-
-    def handleArpRequest(self, pkt):
-        self.addMacAddr(pkt[ARP].hwsrc, pkt[CPUMetadata].srcPort)
-        self.send(pkt)
 
     def handlePkt(self, pkt):
         #pkt.show2()
@@ -47,10 +29,7 @@ class MacLearningController(Thread):
         if pkt[CPUMetadata].fromCpu == 1: return
 
         if ARP in pkt:
-            if pkt[ARP].op == ARP_OP_REQ:
-                self.handleArpRequest(pkt)
-            elif pkt[ARP].op == ARP_OP_REPLY:
-                self.handleArpReply(pkt)
+            self.arp_handler.handle(pkt)
 
         elif IP in pkt:
             pkt.show2()
