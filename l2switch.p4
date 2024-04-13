@@ -12,6 +12,7 @@ const port_t CPU_PORT           = 0x1;
 const bit<16> ARP_OP_REQ        = 0x0001;
 const bit<16> ARP_OP_REPLY      = 0x0002;
 
+const bit<16> TYPE_IPV4         = 0x0800;
 const bit<16> TYPE_ARP          = 0x0806;
 const bit<16> TYPE_CPU_METADATA = 0x080a;
 
@@ -43,10 +44,26 @@ header arp_t {
     ip4Addr_t dstIP;
 }
 
+header ipv4_t {
+    bit<4>    version;
+    bit<4>    ihl;
+    bit<8>    diffserv;
+    bit<16>   totalLen;
+    bit<16>   identification;
+    bit<3>    flags;
+    bit<13>   fragOffset;
+    bit<8>    ttl;
+    bit<8>    protocol;
+    bit<16>   hdrChecksum;
+    ip4Addr_t srcAddr;
+    ip4Addr_t dstAddr;
+}
+
 struct headers {
     ethernet_t        ethernet;
     cpu_metadata_t    cpu_metadata;
     arp_t             arp;
+    ipv4_t            ipv4;
 }
 
 struct metadata { }
@@ -62,6 +79,7 @@ parser MyParser(packet_in packet,
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
+            TYPE_IPV4: parse_ipv4;
             TYPE_ARP: parse_arp;
             TYPE_CPU_METADATA: parse_cpu_metadata;
             default: accept;
@@ -71,6 +89,7 @@ parser MyParser(packet_in packet,
     state parse_cpu_metadata {
         packet.extract(hdr.cpu_metadata);
         transition select(hdr.cpu_metadata.origEtherType) {
+            TYPE_IPV4: parse_ipv4;
             TYPE_ARP: parse_arp;
             default: accept;
         }
@@ -80,10 +99,31 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.arp);
         transition accept;
     }
+
+    state parse_ipv4 {
+        packet.extract(hdr.ipv4);
+        transition accept;
+    }
 }
 
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
-    apply { }
+    apply { 
+        verify_checksum(
+            hdr.ipv4.isValid(),
+            {   // inputs listed as 16bit words 
+                hdr.ipv4.version, hdr.ipv4.ihl, hdr.ipv4.diffserv,
+                hdr.ipv4.totalLen,
+                hdr.ipv4.identification,
+                hdr.ipv4.flags, hdr.ipv4.fragOffset,
+                hdr.ipv4.ttl, hdr.ipv4.protocol,
+                // skp the old csum when computing the new
+                hdr.ipv4.srcAddr,
+                hdr.ipv4.dstAddr 
+            },
+            hdr.ipv4.hdrChecksum,
+            HashAlgorithm.csum16
+        );
+    }
 }
 
 control MyIngress(inout headers hdr,
@@ -162,6 +202,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.ethernet);
         packet.emit(hdr.cpu_metadata);
         packet.emit(hdr.arp);
+        packet.emit(hdr.ipv4);
     }
 }
 
