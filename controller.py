@@ -73,7 +73,7 @@ class MacLearningController(Thread):
                     self.send(reply)
 
             elif pkt[IP].proto == PROTO_PWOSPF:
-                self.pwospf_handler.handle_lsu(pkt)
+                self.pwospf_handler.handle(pkt)
 
 
         elif pkt[IP].ttl == 0:
