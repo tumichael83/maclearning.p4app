@@ -167,6 +167,7 @@ control MyIngress(inout headers hdr,
     action send_to_cpu() {
         cpu_meta_encap();
         standard_metadata.egress_spec = CPU_PORT;
+        exit;
     }
 
     action find_next_hop_ip(ip4Addr_t dstAddr) {
@@ -198,6 +199,12 @@ control MyIngress(inout headers hdr,
         default_action = drop();
     }
 
+    table local_ip_table {
+        key = { hdr.ipv4.dstAddr: exact; }
+        actions = { send_to_cpu; NoAction; }
+        size = 16;
+        default_action = NoAction;
+    }
 
     apply {
         if (standard_metadata.ingress_port == CPU_PORT) {
@@ -212,6 +219,11 @@ control MyIngress(inout headers hdr,
                 send_to_cpu();
             }
             else {
+
+                // don't send my packets back to me
+                if (standard_metadata.ingress_port != CPU_PORT)
+                    local_ip_table.apply();
+
                 hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
 
                 ipv4_routing.apply();

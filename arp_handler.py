@@ -8,9 +8,12 @@ ARP_OP_REPLY = 0x0002
 
 class ArpHandler():
 
-    def __init__(self, sw, send_func):
+    def __init__(self, sw, ip, mac, send_func):
         self.sw = sw
         self.send = send_func
+
+        self.ip = ip
+        self.mac = mac
 
         self.mac_for_ip     = {}
         self.port_for_mac   = {}
@@ -45,11 +48,17 @@ class ArpHandler():
         self.addIpAddr(pkt[ARP].psrc, pkt[ARP].hwsrc)
         self.addMacAddr(pkt[ARP].hwsrc, pkt[CPUMetadata].srcPort)
 
-        if (pkt[ARP].pdst not in self.mac_for_ip):
+        if pkt[ARP].pdst not in self.mac_for_ip and pkt[ARP].pdst != self.ip:
             self.send(pkt)
         else:
             # cached mac addr for this IP address
-            hwsrc = self.mac_for_ip[pkt[ARP].pdst] 
+            if pkt[ARP].pdst != self.ip:
+                hwsrc = self.mac_for_ip[pkt[ARP].pdst] 
+                psrc = pkt[ARP].pdst
+
+            else:
+                hwsrc = self.mac
+                psrc = self.ip
 
             reply = Ether(dst=pkt[Ether].src, 
                           src=pkt[Ether].dst, 
@@ -57,15 +66,12 @@ class ArpHandler():
                           )
 
             # spoof a cpu metadata from the actual response
-            reply /= CPUMetadata(srcPort=pkt[CPUMetadata].srcPort,
-                                 origEtherDst=pkt[CPUMetadata].origEtherSrc,
-                                 origEtherSrc=hwsrc,
-                                 origEtherType=TYPE_ARP,
-                                 fromCpu=1)
+            reply /= CPUMetadata(origEtherType=TYPE_ARP,fromCpu=1)
             reply /= ARP(hwsrc=hwsrc,
                          hwdst=pkt[ARP].hwsrc,
-                         psrc=pkt[ARP].pdst,
-                         pdst=pkt[ARP].psrc)
+                         psrc=psrc,
+                         pdst=pkt[ARP].psrc,
+                         op=ARP_OP_REPLY)
 
             self.send(reply)
 
