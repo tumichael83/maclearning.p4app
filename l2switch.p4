@@ -29,8 +29,8 @@ header ethernet_t {
 
 header cpu_metadata_t {
     bit<16>         srcPort;
-    macAddr_t       dstAddr;
-    macAddr_t       srcAddr;
+    macAddr_t       origEtherDst;
+    macAddr_t       origEtherSrc;
     bit<16>         origEtherType;
     bit<8>          fromCpu;
 }
@@ -152,8 +152,8 @@ control MyIngress(inout headers hdr,
         hdr.cpu_metadata.setValid();
         
         hdr.cpu_metadata.srcPort = (bit<16>)standard_metadata.ingress_port;
-        hdr.cpu_metadata.dstAddr = hdr.ethernet.dstAddr;
-        hdr.cpu_metadata.srcAddr = hdr.cpu_metadata.srcAddr;
+        hdr.cpu_metadata.origEtherDst = hdr.ethernet.dstAddr;
+        hdr.cpu_metadata.origEtherSrc = hdr.ethernet.srcAddr;
         hdr.cpu_metadata.origEtherType = hdr.ethernet.etherType;
 
         hdr.ethernet.etherType = TYPE_CPU_METADATA;
@@ -219,12 +219,11 @@ control MyIngress(inout headers hdr,
                 send_to_cpu();
             }
             else {
+                hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
 
                 // don't send my packets back to me
                 if (standard_metadata.ingress_port != CPU_PORT)
                     local_ip_table.apply();
-
-                hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
 
                 ipv4_routing.apply();
                 arp_table.apply();

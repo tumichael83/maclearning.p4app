@@ -4,7 +4,7 @@ from pwospf_packet import PWOSPF_Hdr, PWOSPF_Hello, PWOSPF_Lsu, PWOSPF_LSA
 from datetime import datetime as dt
 
 from collections import namedtuple
-NeighborEntry = namedtuple("NeighborEntry", "")
+NeighborEntry = namedtuple("NeighborEntry", "routerID helloint last_hello mac")
 
 
 BCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -18,13 +18,14 @@ TTL_DFLT    = 255
 ALLOSPFADDR = '224.0.0.5'
 
 class PWOSPFHandler():
-    def __init__(self, stop_event, sw, send_func, ip, mac, routerID, areaID, mask):
+    def __init__(self, stop_event, sw, ifaces, send_func, ip, mac, routerID, areaID, mask):
 
         self.stop_event     = stop_event
         self.send           = send_func
 
         self.sw             = sw
-        self.areaID         = send_func
+        self.ifaces         = ifaces
+        self.send           = send_func
 
         self.ip             = ip
         self.mac            = mac
@@ -50,14 +51,14 @@ class PWOSPFHandler():
         )
 
     def broadcast(self):
-        while not self.stop_event.wait(1): # loop in 1 second intervals
+        while not self.stop_event.wait(0.5): # loop in 1 second intervals
             # send my helloint
             if (dt.now() - self.last_hello).total_seconds() >= self.helloint:
                 self.send_hello()
                 self.last_hello = dt.now()
 
             # send my lsu
-            if (dt.now() - self.last_lsu).total_seconds() >= self:
+            if (dt.now() - self.last_lsu).total_seconds() >= self.lsuint:
                 self.send_lsu()
                 self.last_lsu = dt.now()
 
@@ -75,7 +76,19 @@ class PWOSPFHandler():
 
         # not really sure about subnet=self.routerID
         lsalist = [PWOSPF_LSA(subnet=self.routerID,mask=self.mask,routerID=self.routerID)]
+        for port, iface in self.ifaces.items():
+            for router_ip, neighbor in iface.neighbors.items():
+                pass
 
+        for port, iface in self.ifaces.items():
+            for router_ip, neighbor in iface.neighbors.items():
+                pkt = Ether(dst=neighbor.mac,src=self.mac)
+                pkt /= CPUMetadata()
+                pkt /= IP(src=self.ip, dst=router_ip)
+                pkt /= PWOSPF_Hdr(routerID=self.routerID,areaID=self.areaID)
+                pkt /= PWOSPF_Lsu(seq=self.seq,ttl=self.ttl,count=len(lsalist),lsalist=lsalist)
+
+                self.send(pkt)
 
 
         self.seq += 1
@@ -90,10 +103,45 @@ class PWOSPFHandler():
             self.handle_lsu(pkt)
 
     def handle_hello(self, pkt):
-        print('received hello')
+
+        # match to iface
+        srcPort = pkt[CPUMetadata].srcPort
+        iface = self.ifaces[srcPort]
+
+        # check network mask and helloint
+        if pkt[PWOSPF_Hello].mask != iface.mask or pkt[PWOSPF_Hello].helloint != iface.helloint:
+            return
+
+        neighbor_router_ip = pkt[IP].src
+        neighbor_mac = pkt[CPUMetadata].origEtherSrc
+
+        if neighbor_router_ip not in iface.neighbors.keys():
+            self.sw.insertTableEntry( # arp entry for neighbor, should this be a call to arp_handler?
+                table_name='MyIngress.arp_table',
+                match_fields={'next_hop_ip': neighbor_router_ip},
+                action_name='MyIngress.find_next_hop_mac',
+                action_params={'dstAddr': neighbor_mac}
+            )
+            self.sw.insertTableEntry(
+                table_name='MyIngress.fwd_l2',
+                match_fields={'hdr.ethernet.dstAddr': neighbor_mac},
+                action_name='MyIngress.set_egr',
+                action_params={'port': srcPort}
+            )
+
+        iface.neighbors[neighbor_router_ip] = NeighborEntry(
+            routerID=pkt[PWOSPF_Hdr].routerID, 
+            helloint=pkt[PWOSPF_Hello].helloint, 
+            last_hello=dt.now(), 
+            mac=neighbor_mac
+        )
+
+        # print(iface.neighbors)
+        
 
     def handle_lsu(self, pkt):
-        print(self.sw.name+': received lsu')
+        # if self.sw.name == 's1':
+        #     pkt.show2()
 
     def is_valid_ospf(self, pkt):
         # TODO: Checksum
@@ -108,10 +156,11 @@ class PWOSPFHandler():
 
 
 class PWOSPF_Iface():
-    def __init__(self, mask, helloint):
+    def __init__(self,ip,mask,helloint):
 
+        self.ip             = ip
         self.mask           = mask
         self.helloint       = helloint
 
-        self.neighbors      = {} # 
+        self.neighbors      = {} # device ip: routerID helloint last_hello mac
 
