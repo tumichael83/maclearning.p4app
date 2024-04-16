@@ -167,6 +167,7 @@ control MyIngress(inout headers hdr,
     action send_to_cpu() {
         cpu_meta_encap();
         standard_metadata.egress_spec = CPU_PORT;
+        packet_counter.count(0);
         exit;
     }
 
@@ -212,6 +213,7 @@ control MyIngress(inout headers hdr,
         }
 
         if (hdr.arp.isValid() && standard_metadata.ingress_port != CPU_PORT) {
+            packet_counter.count(1);
             send_to_cpu();
         }
         else if (hdr.ipv4.isValid()) {
@@ -233,6 +235,8 @@ control MyIngress(inout headers hdr,
 
                 hdr.ethernet.dstAddr = next_hop_mac; // this makes arpings slightly slower for some reason?
 
+
+                packet_counter.count(2);
                 fwd_l2.apply();
             }
         }
