@@ -187,9 +187,9 @@ control MyIngress(inout headers hdr,
 
     table arp_table {
         key = { next_hop_ip: exact; }
-        actions = { find_next_hop_mac; drop; NoAction; }
+        actions = { find_next_hop_mac; send_to_cpu; drop; NoAction; }
         size = 64;
-        default_action = NoAction;
+        default_action = send_to_cpu;
     }
 
     table fwd_l2 {
@@ -215,18 +215,24 @@ control MyIngress(inout headers hdr,
             send_to_cpu();
         }
         else if (hdr.ipv4.isValid()) {
+
+            // if from cpu == from router
+            if (standard_metadata.ingress_port != CPU_PORT)
+                hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+
             if (hdr.ipv4.ttl == 0 || standard_metadata.checksum_error == 1) {
                 send_to_cpu();
             }
             else {
-                hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
-
                 // don't send my packets back to me
                 if (standard_metadata.ingress_port != CPU_PORT)
                     local_ip_table.apply();
 
                 ipv4_routing.apply();
                 arp_table.apply();
+
+                hdr.ethernet.dstAddr = next_hop_mac; // this makes arpings slightly slower for some reason?
+
                 fwd_l2.apply();
             }
         }

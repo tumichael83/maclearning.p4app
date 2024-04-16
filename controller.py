@@ -1,6 +1,7 @@
 from threading import Thread, Event
 from scapy.all import sendp
 from scapy.all import Packet, Ether, IP, ARP, ICMP
+from utils import valid_checksum
 from async_sniff import sniff
 from cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
 
@@ -32,7 +33,7 @@ class MacLearningController(Thread):
             action_params={},
         )
 
-        self.arp_handler = ArpHandler(sw=sw,ip=ip,mac=mac,send_func=self.send)
+        self.arp_handler = ArpHandler(sw=sw,ip=ip,mac=mac,mask='255.255.255.0',send_func=self.send)
 
         # must be manually configured, don't pass in here?
         ifaces = {port:PWOSPF_Iface(ip=self.ip,mask='255.255.255.0',helloint=HELLOINT_DFLT) for port in range(2, nPorts+1)}
@@ -47,6 +48,7 @@ class MacLearningController(Thread):
             routerID=self.ip,       # use the routers IP as its router ID
             areaID='0.0.0.0',       # use default for now
             mask='255.255.255.0',   # same
+            arp_handler=self.arp_handler,
         )
         self.pwospf_bcast_thread = Thread(target=self.pwospf_handler.broadcast)
 
@@ -80,15 +82,34 @@ class MacLearningController(Thread):
                 self.pwospf_handler.handle(pkt)
 
 
-        elif pkt[IP].ttl == 0:
+        elif pkt[IP].ttl == 0: # we're getting invalid ttl for things that we know exist but we don't know where to route
             if pkt[IP].proto == PROTO_PWOSPF and pkt[IP].dst == ALLOSPFADDR:
                 self.pwospf_handler.handle(pkt)
 
             else:
-                print('invalid ttl received')
+                print(self.sw.name+': invalid ttl received')
+                reply = Ether(src=self.mac, dst=pkt[Ether].src, type=TYPE_CPU_METADATA)
+                reply /= CPUMetadata()
+                reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
+                reply /= ICMP(type=11,id=pkt[ICMP].id,code=0)
+                reply /= pkt[IP]
+
+                # if self.sw.name == 's3':
+                #     pkt.show2()
+
+                self.send(reply)
 
         elif pkt[IP].proto == PROTO_PWOSPF:
             self.pwospf_handler.handle(pkt)
+
+        elif self.arp_handler.on_my_subnet(pkt[IP].dst):
+            if pkt[IP].dst not in self.arp_handler.mac_for_ip:
+                if pkt[IP].dst not in self.arp_handler.arp_queue.keys():
+                    print(self.sw.name+': sending arp')
+                    self.arp_handler.arp_req_for(pkt[IP].dst)
+
+                self.arp_handler.enqueue_ip(pkt)
+
 
     def send(self, *args, **override_kwargs):
         pkt = args[0]
@@ -109,3 +130,5 @@ class MacLearningController(Thread):
     def join(self, *args, **kwargs):
         self.stop_event.set()
         super(MacLearningController, self).join(*args, **kwargs)
+
+

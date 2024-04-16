@@ -5,8 +5,8 @@ import time
 from controller import MacLearningController
 from my_topo import SingleSwitchTopo, CustomTopo
 
-nSwitches, nHosts = 2, 3
-links = [[1,2]]
+nSwitches, nHosts = 4, 3
+links = [[1,2], [2,3], [3,1], [3,4]]
 
 topo = CustomTopo(nSwitches,nHosts,links)
 net = P4Mininet(program="l2switch.p4", topo=topo, auto_arp=False)
@@ -39,16 +39,24 @@ for i in range(1, nSwitches + 1):
     )
     cpu.start()
 
+
+time.sleep(30)
+
 h2, h3 = net.get("s1h2"), net.get("s1h3")
 
-print(h2.cmd("arping -c 1 10.0.1.3"))
-print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is cached on cpu
+# print(h2.cmd("arping -c 1 10.0.1.3"))
+# print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is cached on cpu
 
-print(h2.cmd("ping -c 1 10.0.1.3"))
-print(h2.cmd("ping -c 1 10.0.1.1"))
-# print(h2.cmd("traceroute -m 10 -I 10.0.1.1")) # -m for number of hops, -I to use icmp
+# print(h2.cmd("ping -c 3 10.0.1.3"))
+# print(h2.cmd("ping -c 1 10.0.1.1"))
+
+# i'm pretty sure this is failing because my computer can't handle the additional load
+# when I check the pcap of the input from h2 on s1-eth2_in, i'm missing a bunch of intermediate packets
+print(h2.cmd("traceroute -w 5 -m 10 -I 10.0.4.2")) # -m for number of hops, -I to use icmp
+
+# print(h2.cmd("ping -c 1 10.0.4.1"))
 
 # These table entries were added by the CPU:
-net.get('s1').printTableEntries()
+# net.get('s1').printTableEntries()
 
-time.sleep(20)
+net.get('s4').printTableEntries()
