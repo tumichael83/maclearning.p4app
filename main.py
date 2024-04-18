@@ -44,11 +44,11 @@ time.sleep(30)
 
 h2, h3 = net.get("s1h2"), net.get("s1h3")
 
-# print(h2.cmd("arping -c 1 10.0.1.3"))
-# print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is cached on cpu
+print(h2.cmd("arping -c 1 10.0.1.3"))
+print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is cached on cpu
 
-# print(h2.cmd("ping -c 3 10.0.1.3"))
-# print(h2.cmd("ping -c 1 10.0.1.1"))
+print(h2.cmd("ping -c 3 10.0.1.3"))
+print(h2.cmd("ping -c 1 10.0.1.1"))
 
 # i'm pretty sure this is failing because my computer can't handle the additional load
 # when I check the input from h2 in s1-eth2_in.pcap, i'm missing a bunch of intermediate ttls
@@ -62,7 +62,7 @@ print(h2.cmd('ping -c 1 10.0.2.1'))
 
 print(h2.cmd('ping -c 1 10.0.2.2'))
 
-# print(h2.cmd("ping -c 1 10.0.4.1"))
+print(h2.cmd("ping -c 1 10.0.4.1"))
 
 # These table entries were added by the CPU:
 # net.get('s1').printTableEntries()

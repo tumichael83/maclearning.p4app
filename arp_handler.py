@@ -73,12 +73,13 @@ class ArpHandler():
 
 
     def handleArpRequest(self, pkt):
+        if not self.on_my_subnet(pkt[ARP].psrc) and not pkt[ARP].pdst == self.ip:
+            return
+
         self.addIpAddr(pkt[ARP].psrc, pkt[ARP].hwsrc)
         self.addMacAddr(pkt[ARP].hwsrc, pkt[CPUMetadata].srcPort)
 
-        if not self.on_my_subnet(pkt[ARP].psrc):
-            return
-        elif pkt[ARP].pdst not in self.mac_for_ip and self.on_my_subnet(pkt[ARP].pdst) and pkt[ARP].pdst != self.ip:
+        if pkt[ARP].pdst not in self.mac_for_ip and self.on_my_subnet(pkt[ARP].pdst) and pkt[ARP].pdst != self.ip:
             self.send(pkt)
         else:
             # cached mac addr for this IP address
