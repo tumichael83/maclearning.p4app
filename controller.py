@@ -48,6 +48,9 @@ class MacLearningController(Thread):
             elif pkt[ARP].op == ARP_OP_REPLY:
                 self.handleArpReply(pkt)
 
+        elif IP in pkt:
+            pkt.show2()
+
     def send(self, *args, **override_kwargs):
         pkt = args[0]
         assert CPUMetadata in pkt, "Controller must send packets with special header"
