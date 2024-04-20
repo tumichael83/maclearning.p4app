@@ -9,9 +9,11 @@ TYPE_CPU_METADATA = 0x080a
 class CPUMetadata(Packet):
     name = "CPUMetadata"
     fields_desc = [ ShortField("srcPort", None),
+
                     DestMACField("origEtherDst"),
                     SourceMACField("origEtherSrc"),
                     ShortField("origEtherType", None),
+
                     ByteField("fromCpu", 0),
                 ]
 

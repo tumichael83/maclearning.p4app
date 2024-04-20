@@ -3,6 +3,7 @@ from scapy.all import sendp
 from scapy.all import Packet, Ether, IP, ARP
 from async_sniff import sniff
 from cpu_metadata import CPUMetadata
+
 import time
 
 ARP_OP_REQ   = 0x0001
@@ -11,11 +12,14 @@ ARP_OP_REPLY = 0x0002
 class MacLearningController(Thread):
     def __init__(self, sw, start_wait=0.3):
         super(MacLearningController, self).__init__()
+
         self.sw = sw
-        self.start_wait = start_wait # time to wait for the controller to be listenning
         self.iface = sw.intfs[1].name
-        self.port_for_mac = {}
+
+        self.start_wait = start_wait # time to wait for the controller to be listenning
         self.stop_event = Event()
+
+        self.port_for_mac = {}
 
     def addMacAddr(self, mac, port):
         # Don't re-add the mac-port mapping if we already have it:
