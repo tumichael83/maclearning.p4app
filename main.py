@@ -27,16 +27,21 @@ for i in range(1, nSwitches + 1):
     )
 
     # Start the MAC learning controller
-    cpu = MacLearningController(sw)
+    h1 = net.get("s%dh1" % i)
+    cpu = MacLearningController(
+        sw=sw,
+        ip = h1.IP(),
+        mac = h1.MAC(),
+    )
     cpu.start()
 
 h2, h3 = net.get("s1h2"), net.get("s1h3")
 
-print(h2.cmd("arping -c1 10.0.1.3"))
-print(h2.cmd("arping -c1 10.0.1.3")) # second arping is faster bc response is cached on cpu
+print(h2.cmd("arping -c 1 10.0.1.3"))
+print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is cached on cpu
 
-print(h3.cmd("ping -c 5 10.0.1.2"))
-print(h2.cmd("ping -c 5 10.0.1.3"))
+print(h2.cmd("ping -c 1 10.0.1.3"))
+print(h2.cmd("ping -c 1 10.0.1.1"))
 
 # These table entries were added by the CPU:
-sw.printTableEntries()
+net.get('s1').printTableEntries()
