@@ -1,5 +1,7 @@
 from p4app import P4Mininet
 
+import time
+
 from controller import MacLearningController
 from my_topo import SingleSwitchTopo, CustomTopo
 
@@ -32,6 +34,8 @@ for i in range(1, nSwitches + 1):
         sw=sw,
         ip = h1.IP(),
         mac = h1.MAC(),
+        mask='255.255.255.0',
+        nPorts=topo.link_count[swName]
     )
     cpu.start()
 
@@ -42,6 +46,9 @@ print(h2.cmd("arping -c 1 10.0.1.3")) # second arping is faster bc response is c
 
 print(h2.cmd("ping -c 1 10.0.1.3"))
 print(h2.cmd("ping -c 1 10.0.1.1"))
+# print(h2.cmd("traceroute -m 10 -I 10.0.1.1")) # -m for number of hops, -I to use icmp
 
 # These table entries were added by the CPU:
 net.get('s1').printTableEntries()
+
+time.sleep(20)

@@ -5,14 +5,14 @@ from async_sniff import sniff
 from cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
 
 from arp_handler import ArpHandler
-from pwospf_handler import PWOSPFHandler, PROTO_PWOSPF
+from pwospf_handler import PWOSPFHandler, PROTO_PWOSPF, PWOSPF_Iface, HELLOINT_DFLT, ALLOSPFADDR
 
 import time
 
 PROTO_ICMP = 1
 
 class MacLearningController(Thread):
-    def __init__(self,sw, ip, mac):
+    def __init__(self,sw, ip, mac, mask, nPorts):
         super(MacLearningController, self).__init__()
 
         self.start_wait = 0.3 # time to wait for the controller to be listenning
@@ -34,9 +34,13 @@ class MacLearningController(Thread):
 
         self.arp_handler = ArpHandler(sw=sw,ip=ip,mac=mac,send_func=self.send)
 
+        # must be manually configured, don't pass in here?
+        ifaces = {port:PWOSPF_Iface(ip=self.ip,mask='255.255.255.0',helloint=HELLOINT_DFLT) for port in range(2, nPorts+1)}
+
         self.pwospf_handler = PWOSPFHandler(
             stop_event=self.stop_event,
             sw=sw,
+            ifaces=ifaces,
             send_func=self.send,
             ip=ip,
             mac=mac,
@@ -77,7 +81,11 @@ class MacLearningController(Thread):
 
 
         elif pkt[IP].ttl == 0:
-            print("received invalid ttl")
+            if pkt[IP].proto == PROTO_PWOSPF and pkt[IP].dst == ALLOSPFADDR:
+                self.pwospf_handler.handle(pkt)
+
+            else:
+                print('invalid ttl received')
 
         elif pkt[IP].proto == PROTO_PWOSPF:
             self.pwospf_handler.handle(pkt)
