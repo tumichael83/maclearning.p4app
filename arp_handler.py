@@ -29,7 +29,7 @@ class ArpHandler():
     def addIpAddr(self, ip, mac):
         # Don't re-add the ip-mac mapping if we already have it:
         if ip in self.mac_for_ip: return
-        print(self.sw.name+': adding '+ip)
+        # print(self.sw.name+': adding '+ip)
         self.sw.insertTableEntry(table_name='MyIngress.arp_table',
                 match_fields={'next_hop_ip': [ip]},
                 action_name='MyIngress.find_next_hop_mac',
@@ -41,7 +41,7 @@ class ArpHandler():
         # Don't re-add the mac-port mapping if we already have it:
         if mac in self.port_for_mac: return
 
-        print(self.sw.name+': mac '+mac)
+        # print(self.sw.name+': mac '+mac)
         self.sw.insertTableEntry(table_name='MyIngress.fwd_l2',
                 match_fields={'hdr.ethernet.dstAddr': [mac]},
                 action_name='MyIngress.set_egr',

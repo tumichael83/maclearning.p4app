@@ -1,7 +1,7 @@
 from scapy.all import Packet, Ether, IP
 from cpu_metadata import CPUMetadata
 from pwospf_packet import PWOSPF_Hdr, PWOSPF_Hello, PWOSPF_Lsu, PWOSPF_LSA
-from datetime import datetime as dt
+import time
 
 import ipaddress
 from utils import subnet_mask_to_bits
@@ -39,10 +39,10 @@ class PWOSPFHandler():
         self.mask           = mask
 
         self.helloint       = HELLOINT_DFLT
-        self.last_hello     = dt.now()
+        self.last_hello     = time.time()
 
         self.lsuint         = LSUINT_DFLT
-        self.last_lsu       = dt.now()
+        self.last_lsu       = time.time()
         self.seq            = 0
         self.ttl            = TTL_DFLT
 
@@ -72,14 +72,14 @@ class PWOSPFHandler():
     def broadcast(self):
         while not self.stop_event.wait(0.5): # loop in 1 second intervals
             # send my helloint
-            if (dt.now() - self.last_hello).total_seconds() >= self.helloint:
+            if time.time() - self.last_hello >= self.helloint:
                 self.send_hello()
-                self.last_hello = dt.now()
+                self.last_hello = time.time()
 
             # send my lsu
-            if (dt.now() - self.last_lsu).total_seconds() >= self.lsuint:
+            if time.time() - self.last_lsu >= self.lsuint:
                 self.send_lsu()
-                self.last_lsu = dt.now()
+                self.last_lsu = time.time()
 
     def send_hello(self):
         hello = Ether(src=self.mac, dst=BCAST_MAC)
@@ -91,8 +91,6 @@ class PWOSPFHandler():
         self.send(hello)
 
     def send_lsu(self):
-        print('sending lsu')
-
         # TODO: not really sure about subnet=self.routerID
         lsalist = [PWOSPF_LSA(subnet=self.routerID,mask=self.mask,routerID=self.routerID)]
         for port, iface in self.ifaces.items():
@@ -159,7 +157,7 @@ class PWOSPFHandler():
         iface.neighbors[neighbor_router_ip] = NeighborEntry(
             routerID=pkt[PWOSPF_Hdr].routerID, 
             helloint=pkt[PWOSPF_Hello].helloint, 
-            last_hello=dt.now(), 
+            last_hello=time.time(), 
             mac=neighbor_mac
         )
 
@@ -298,7 +296,7 @@ class Router_State():
     '''
 
     def __init__(self, pkt):
-        self.time_received  = dt.now()
+        self.time_received  = time.time()
 
         self.routerID       = pkt[PWOSPF_Hdr].routerID
         self.seq            = pkt[PWOSPF_Lsu].seq

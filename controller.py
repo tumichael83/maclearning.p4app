@@ -87,7 +87,7 @@ class MacLearningController(Thread):
                 self.pwospf_handler.handle(pkt)
 
             else:
-                print(self.sw.name+': invalid ttl received')
+                # print(self.sw.name+': invalid ttl received')
                 reply = Ether(src=self.mac, dst=pkt[Ether].src, type=TYPE_CPU_METADATA)
                 reply /= CPUMetadata()
                 reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
@@ -105,7 +105,7 @@ class MacLearningController(Thread):
         elif self.arp_handler.on_my_subnet(pkt[IP].dst):
             if pkt[IP].dst not in self.arp_handler.mac_for_ip:
                 if pkt[IP].dst not in self.arp_handler.arp_queue.keys():
-                    print(self.sw.name+': sending arp')
+                    # print(self.sw.name+': sending arp')
                     self.arp_handler.arp_req_for(pkt[IP].dst)
 
                 self.arp_handler.enqueue_ip(pkt)

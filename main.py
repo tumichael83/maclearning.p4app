@@ -6,7 +6,7 @@ from controller import MacLearningController
 from my_topo import SingleSwitchTopo, CustomTopo
 
 nSwitches, nHosts = 4, 3
-links = [[1,2], [2,3], [3,1], [3,4]]
+links = [[1,2], [2,3], [3,4], [4,1], [1,3]]
 
 topo = CustomTopo(nSwitches,nHosts,links)
 net = P4Mininet(program="l2switch.p4", topo=topo, auto_arp=False)
@@ -51,8 +51,8 @@ h2, h3 = net.get("s1h2"), net.get("s1h3")
 # print(h2.cmd("ping -c 1 10.0.1.1"))
 
 # i'm pretty sure this is failing because my computer can't handle the additional load
-# when I check the pcap of the input from h2 on s1-eth2_in, i'm missing a bunch of intermediate packets
-print(h2.cmd("traceroute -w 5 -m 10 -I 10.0.4.2")) # -m for number of hops, -I to use icmp
+# when I check the input from h2 in s1-eth2_in.pcap, i'm missing a bunch of intermediate ttls
+print(h2.cmd("traceroute -m 10 -I 10.0.3.2")) # -m for number of hops, -I to use icmp
 
 # print(h2.cmd("ping -c 1 10.0.4.1"))
 
