@@ -29,24 +29,28 @@ class ArpHandler():
     def addIpAddr(self, ip, mac):
         # Don't re-add the ip-mac mapping if we already have it:
         if ip in self.mac_for_ip: return
-        # print(self.sw.name+': adding '+ip)
+
+        print(self.sw.name+': adding ip:'+ip)
+        # print(self.sw.name, 'before adding:', self.mac_for_ip)
+        self.mac_for_ip[ip] = mac
+        # print(self.sw.name, 'after adding:', self.mac_for_ip)
         self.sw.insertTableEntry(table_name='MyIngress.arp_table',
                 match_fields={'next_hop_ip': [ip]},
                 action_name='MyIngress.find_next_hop_mac',
                 action_params={'dstAddr': mac})
-        self.mac_for_ip[ip] = mac
 
     
     def addMacAddr(self, mac, port):
         # Don't re-add the mac-port mapping if we already have it:
         if mac in self.port_for_mac: return
 
-        # print(self.sw.name+': mac '+mac)
+        print(self.sw.name+': adding mac: '+mac)
+
+        self.port_for_mac[mac] = port
         self.sw.insertTableEntry(table_name='MyIngress.fwd_l2',
                 match_fields={'hdr.ethernet.dstAddr': [mac]},
                 action_name='MyIngress.set_egr',
                 action_params={'port': port})
-        self.port_for_mac[mac] = port
 
     def handleArpReply(self, pkt):
         self.addIpAddr(pkt[ARP].psrc, pkt[ARP].hwsrc)
@@ -63,7 +67,7 @@ class ArpHandler():
             to_remove.append(ip)
 
         for ip in to_remove:
-            del self.mac_for_ip[ip]
+            del self.arp_queue[ip]
 
 
 
@@ -72,7 +76,9 @@ class ArpHandler():
         self.addIpAddr(pkt[ARP].psrc, pkt[ARP].hwsrc)
         self.addMacAddr(pkt[ARP].hwsrc, pkt[CPUMetadata].srcPort)
 
-        if pkt[ARP].pdst not in self.mac_for_ip and self.on_my_subnet(pkt[ARP].pdst) and pkt[ARP].pdst != self.ip:
+        if not self.on_my_subnet(pkt[ARP].psrc):
+            return
+        elif pkt[ARP].pdst not in self.mac_for_ip and self.on_my_subnet(pkt[ARP].pdst) and pkt[ARP].pdst != self.ip:
             self.send(pkt)
         else:
             # cached mac addr for this IP address
@@ -111,6 +117,7 @@ class ArpHandler():
             self.arp_queue[pkt[IP].dst] += [pkt]
 
     def arp_req_for(self, ip):
+        print(self.sw.name+': arping for: ' +ip)
         req = Ether(dst=BCAST_MAC, src=self.mac)
         req /= CPUMetadata()
         req /= ARP(hwsrc=self.mac,hwdst=BCAST_MAC,psrc=self.ip,pdst=ip,op=ARP_OP_REQ)
