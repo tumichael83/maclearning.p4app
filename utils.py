@@ -10,6 +10,3 @@ def valid_checksum(pkt):
 
     return out == pkt[IP].chksum
 
-def subnet_mask_to_bits(subnet_mask):
-    network = ipaddress.IPv4Network("0.0.0.0/%s" % subnet_mask)
-    return network.prefixlen

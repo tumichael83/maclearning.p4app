@@ -1,12 +1,11 @@
 from threading import Thread, Event
 from scapy.all import sendp
 from scapy.all import Packet, Ether, IP, ARP, ICMP
-from utils import valid_checksum
-from async_sniff import sniff
-from cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
+from michael_pwospf.async_sniff import sniff
+from michael_pwospf.cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
 
-from arp_handler import ArpHandler
-from pwospf_handler import PWOSPFHandler, PROTO_PWOSPF, PWOSPF_Iface, HELLOINT_DFLT, ALLOSPFADDR
+from michael_pwospf.arp_handler import ArpHandler
+from michael_pwospf.pwospf_handler import PWOSPFHandler, PROTO_PWOSPF, PWOSPF_Iface, HELLOINT_DFLT, ALLOSPFADDR
 
 import time
 
@@ -64,7 +63,6 @@ class MacLearningController(Thread):
             self.arp_handler.handle(pkt)
 
         elif IP in pkt:
-            if self.sw.name == 's1' and pkt[IP].proto == PROTO_ICMP: print(self.sw.name+':',time.time())
             self.handle_ip(pkt)
 
 
@@ -91,7 +89,6 @@ class MacLearningController(Thread):
                     reply /= CPUMetadata()
                     reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
                     reply /= ICMP(type=0,id=pkt[ICMP].id,seq=1)
-                    if self.sw.name == 's1': print(self.sw.name+': ping:',time.time())
 
                     self.send(reply)
 

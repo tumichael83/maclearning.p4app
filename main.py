@@ -2,7 +2,7 @@ from p4app import P4Mininet
 
 import time
 
-from controller import MacLearningController
+from michael_pwospf.controller import MacLearningController
 from my_topo import SingleSwitchTopo, CustomTopo
 
 nSwitches, nHosts = 4, 3
@@ -68,3 +68,5 @@ print(h2.cmd("traceroute -m 10 -I 10.0.4.2")) # -m for number of hops, -I to use
 # net.get('s1').printTableEntries()
 
 net.get('s1').printTableEntries()
+net.get('s3').printTableEntries()
+net.get('s4').printTableEntries()

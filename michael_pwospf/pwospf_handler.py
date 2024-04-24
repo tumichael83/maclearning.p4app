@@ -1,10 +1,9 @@
 from scapy.all import Packet, Ether, IP
-from cpu_metadata import CPUMetadata
-from pwospf_packet import PWOSPF_Hdr, PWOSPF_Hello, PWOSPF_Lsu, PWOSPF_LSA
+from michael_pwospf.cpu_metadata import CPUMetadata
+from michael_pwospf.pwospf_packet import PWOSPF_Hdr, PWOSPF_Hello, PWOSPF_Lsu, PWOSPF_LSA
 import time
 
 import ipaddress
-from utils import subnet_mask_to_bits
 
 from collections import namedtuple, deque
 NeighborEntry = namedtuple("NeighborEntry", "routerID helloint last_hello mac")
@@ -98,7 +97,7 @@ class PWOSPFHandler():
                 # TODO: subnet == router_ip???????
                 lsalist.append(PWOSPF_LSA(subnet=router_ip,mask=iface.mask,routerID=neighbor_info.routerID))
 
-        for router_ip, routerID in self.all_routers.items():
+        for router_ip, routerID in list(self.all_routers.items()):
             pkt = Ether(src=self.mac) # the ether dest should be calculated by the arp table (routing table?)
             pkt /= CPUMetadata()
             pkt /= IP(src=self.ip, dst=router_ip, ttl=255)
@@ -365,8 +364,7 @@ class RoutingDB():
         #     for k,v  in entries.items():
         #         print(k, v)
 
-        
-
-        
-
+def subnet_mask_to_bits(subnet_mask):
+    network = ipaddress.IPv4Network("0.0.0.0/%s" % subnet_mask)
+    return network.prefixlen
 

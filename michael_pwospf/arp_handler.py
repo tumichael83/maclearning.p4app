@@ -1,5 +1,5 @@
 from scapy.all import Packet, Ether, IP, ARP
-from cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
+from michael_pwospf.cpu_metadata import CPUMetadata, TYPE_CPU_METADATA
 
 import ipaddress
 
@@ -30,7 +30,6 @@ class ArpHandler():
         # Don't re-add the ip-mac mapping if we already have it:
         if ip in self.mac_for_ip: return
 
-        print(self.sw.name+': adding ip:'+ip)
         # print(self.sw.name, 'before adding:', self.mac_for_ip)
         self.mac_for_ip[ip] = mac
         # print(self.sw.name, 'after adding:', self.mac_for_ip)
@@ -44,7 +43,6 @@ class ArpHandler():
         # Don't re-add the mac-port mapping if we already have it:
         if mac in self.port_for_mac: return
 
-        print(self.sw.name+': adding mac: '+mac)
 
         self.port_for_mac[mac] = port
         self.sw.insertTableEntry(table_name='MyIngress.fwd_l2',
@@ -118,7 +116,6 @@ class ArpHandler():
             self.arp_queue[pkt[IP].dst] += [pkt]
 
     def arp_req_for(self, ip):
-        print(self.sw.name+': arping for: ' +ip)
         req = Ether(dst=BCAST_MAC, src=self.mac)
         req /= CPUMetadata()
         req /= ARP(hwsrc=self.mac,hwdst=BCAST_MAC,psrc=self.ip,pdst=ip,op=ARP_OP_REQ)
