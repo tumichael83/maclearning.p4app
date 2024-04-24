@@ -64,40 +64,40 @@ class MacLearningController(Thread):
             self.arp_handler.handle(pkt)
 
         elif IP in pkt:
+            if self.sw.name == 's1' and pkt[IP].proto == PROTO_ICMP: print(self.sw.name+':',time.time())
             self.handle_ip(pkt)
 
 
     def handle_ip(self, pkt):
-        if pkt[IP].dst == self.ip:
+        if pkt[IP].ttl == 0:
+            if pkt[IP].proto == PROTO_PWOSPF and (pkt[IP].dst == ALLOSPFADDR or pkt[IP].dst == self.ip):
+                self.pwospf_handler.handle(pkt)
+
+            else:                
+                # print(self.sw.name+': invalid ttl received')
+                reply = Ether(src=self.mac, dst=pkt[Ether].src, type=TYPE_CPU_METADATA)
+                reply /= CPUMetadata()
+                reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
+                reply /= ICMP(type=11,code=0)
+                reply /= pkt[IP]
+
+                self.send(reply)
+
+
+        elif pkt[IP].dst == self.ip:
             if pkt[IP].proto == PROTO_ICMP:
                 if pkt[ICMP].type == 8:
                     reply = Ether(src=self.mac, dst=pkt[Ether].src, type=TYPE_CPU_METADATA)
                     reply /= CPUMetadata()
                     reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
                     reply /= ICMP(type=0,id=pkt[ICMP].id,seq=1)
+                    if self.sw.name == 's1': print(self.sw.name+': ping:',time.time())
 
                     self.send(reply)
 
             elif pkt[IP].proto == PROTO_PWOSPF:
                 self.pwospf_handler.handle(pkt)
 
-
-        elif pkt[IP].ttl == 0: # we're getting invalid ttl for things that we know exist but we don't know where to route
-            if pkt[IP].proto == PROTO_PWOSPF and pkt[IP].dst == ALLOSPFADDR:
-                self.pwospf_handler.handle(pkt)
-
-            else:
-                # print(self.sw.name+': invalid ttl received')
-                reply = Ether(src=self.mac, dst=pkt[Ether].src, type=TYPE_CPU_METADATA)
-                reply /= CPUMetadata()
-                reply /= IP(src=self.ip, dst=pkt[IP].src, proto=PROTO_ICMP)
-                reply /= ICMP(type=11,id=pkt[ICMP].id,code=0)
-                reply /= pkt[IP]
-
-                # if self.sw.name == 's3':
-                #     pkt.show2()
-
-                self.send(reply)
 
         elif pkt[IP].proto == PROTO_PWOSPF:
             self.pwospf_handler.handle(pkt)

@@ -141,6 +141,8 @@ class PWOSPFHandler():
         if neighbor_router_ip not in iface.neighbors.keys():
             self.arp_handler.mac_for_ip[neighbor_router_ip] = neighbor_mac
             self.arp_handler.port_for_mac[neighbor_mac] = srcPort
+
+            # should be able to get rid of this if you work with arp_handler correctly!
             self.sw.insertTableEntry( # arp entry for neighbor, TODO: should this be a call to arp_handler?
                 table_name='MyIngress.arp_table',
                 match_fields={'next_hop_ip': neighbor_router_ip},
